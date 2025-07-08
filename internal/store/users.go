@@ -4,8 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"time"
-
-	"github.com/lib/pq"
 )
 
 type User struct {
@@ -25,8 +23,8 @@ type UsersStore struct {
 
 func (s *UsersStore) Create(ctx context.Context, user *User) error {
 	query := `
-		INSERT INTO users (username, email, password, about, friends, friends_of)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO users (username, email, password
+		VALUES ($1, $2, $3)
 		RETURNING id, created_at
 	`
 
@@ -34,9 +32,6 @@ func (s *UsersStore) Create(ctx context.Context, user *User) error {
 		user.Username,
 		user.Email,
 		user.Password,
-		user.About,
-		pq.Array(user.Friends),
-		pq.Array(user.FriendsOf),
 	).Scan(&user.ID, &user.CreatedAt)
 
 	return err

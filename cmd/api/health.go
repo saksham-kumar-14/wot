@@ -1,8 +1,16 @@
 package main
 
-import "net/http"
+import (
+	"net/http"
+)
 
 func (app *application) healthChecker(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(`{ "status" : "ok" }`))
+	data := map[string]string{
+		"status":  "ok",
+		"env":     app.config.env,
+		"version": version,
+	}
+	if err := writeJSON(w, http.StatusOK, data); err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "error occured")
+	}
 }
