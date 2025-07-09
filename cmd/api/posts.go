@@ -83,3 +83,61 @@ func (app *application) getPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 }
+
+func (app *application) deletePost(w http.ResponseWriter, r *http.Request) {
+	idParam := chi.URLParam(r, "postID")
+	postID, err := strconv.ParseInt(idParam, 10, 64)
+	if err != nil {
+		app.internalServerError(w, r, err)
+		return
+	}
+
+	ctx := r.Context()
+	if err := app.store.Posts.DeleteByID(ctx, int(postID)); err != nil {
+		app.badRequestError(w, r, err)
+		return
+	}
+
+	if err := writeJSON(w, http.StatusOK, "Deleted!"); err != nil {
+		app.internalServerError(w, r, err)
+		return
+	}
+}
+
+func (app *application) patchPost(w http.ResponseWriter, r *http.Request) {
+	idParam := chi.URLParam(r, "postID")
+	postID, err := strconv.ParseInt(idParam, 10, 64)
+	if err != nil {
+		app.internalServerError(w, r, err)
+		return
+	}
+
+	var payload PostPayload
+	if err := readJSON(w, r, &payload); err != nil {
+		app.badRequestError(w, r, err)
+		return
+	}
+
+	if err := Validate.Struct(payload); err != nil {
+		app.badRequestError(w, r, err)
+		return
+	}
+
+	post := &store.Post{
+		Title:   payload.Title,
+		Content: payload.Content,
+		Tags:    payload.Tags,
+		ID:      int64(postID),
+	}
+	ctx := r.Context()
+
+	if err := app.store.Posts.PatchByID(ctx, post); err != nil {
+		app.internalServerError(w, r, err)
+		return
+	}
+
+	if err := writeJSON(w, http.StatusOK, post); err != nil {
+		app.internalServerError(w, r, err)
+		return
+	}
+}
