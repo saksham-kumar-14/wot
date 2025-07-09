@@ -13,6 +13,7 @@ type PostPayload struct {
 	Title   string   `json:"title" validate:"required,max=100"`
 	Content string   `json:"content" validate:"required,max=10000"`
 	Tags    []string `json:"tags"`
+	Version int      `json:"version" default:"0"`
 }
 
 func (app *application) createPost(w http.ResponseWriter, r *http.Request) {
@@ -128,6 +129,7 @@ func (app *application) patchPost(w http.ResponseWriter, r *http.Request) {
 		Content: payload.Content,
 		Tags:    payload.Tags,
 		ID:      int64(postID),
+		Version: payload.Version,
 	}
 	ctx := r.Context()
 

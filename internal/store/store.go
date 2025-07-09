@@ -4,10 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"time"
 )
 
 var (
-	ErrNotFound = errors.New("No document found")
+	ErrNotFound  = errors.New("No document found")
+	QueryTimeout = time.Second * 5
 )
 
 type postDataType struct {

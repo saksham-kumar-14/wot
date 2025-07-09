@@ -26,6 +26,10 @@ func (s *CommentsStore) GetCommentsHandler(ctx context.Context, postId int) ([]C
 		WHERE c.post_id=$1
 		ORDER BY c.created_at DESC;`
 
+	// query timeout
+	ctx, cancel := context.WithTimeout(ctx, QueryTimeout)
+	defer cancel()
+
 	rows, err := s.db.QueryContext(ctx, query, postId)
 	if err != nil {
 		return nil, err
