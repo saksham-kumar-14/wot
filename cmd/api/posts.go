@@ -10,8 +10,8 @@ import (
 )
 
 type PostPayload struct {
-	Title   string   `json:"title"`
-	Content string   `json:"content"`
+	Title   string   `json:"title" validate:"required,max=100"`
+	Content string   `json:"content" validate:"required,max=10000"`
 	Tags    []string `json:"tags"`
 }
 
@@ -19,6 +19,11 @@ func (app *application) createPost(w http.ResponseWriter, r *http.Request) {
 
 	var payload PostPayload
 	if err := readJSON(w, r, &payload); err != nil {
+		app.badRequestError(w, r, err)
+		return
+	}
+
+	if err := Validate.Struct(payload); err != nil {
 		app.badRequestError(w, r, err)
 		return
 	}
@@ -64,6 +69,14 @@ func (app *application) getPost(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+
+	comments, err := app.store.Comments.GetCommentsHandler(ctx, int(postID))
+	if err != nil {
+		app.internalServerError(w, r, err)
+		return
+	}
+
+	post.Comments = comments
 
 	if err := writeJSON(w, http.StatusOK, post); err != nil {
 		app.internalServerError(w, r, err)

@@ -13,15 +13,16 @@ type PostsStore struct {
 }
 
 type Post struct {
-	ID        int64    `json:"id"`
-	Title     string   `json:"title"`
-	Content   string   `json:"content"`
-	Likes     int64    `json:"likes"`
-	Dislikes  int64    `json:"dislikes"`
-	UserId    int64    `json:"user_id"`
-	CreatedAt string   `json:"created_at"`
-	UpdatedAt string   `json:"updated_at"`
-	Tags      []string `json:"tags"`
+	ID        int64     `json:"id"`
+	Title     string    `json:"title"`
+	Content   string    `json:"content"`
+	Likes     int64     `json:"likes"`
+	Dislikes  int64     `json:"dislikes"`
+	UserId    int64     `json:"user_id"`
+	CreatedAt string    `json:"created_at"`
+	UpdatedAt string    `json:"updated_at"`
+	Tags      []string  `json:"tags"`
+	Comments  []Comment `json:"comments"`
 }
 
 func (s *PostsStore) Create(ctx context.Context, post *Post) error {
