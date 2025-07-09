@@ -29,6 +29,7 @@ type Storage struct {
 	}
 	Comments interface {
 		GetCommentsHandler(context.Context, int) ([]Comment, error)
+		CreateComment(context.Context, *Comment) error
 	}
 }
 
