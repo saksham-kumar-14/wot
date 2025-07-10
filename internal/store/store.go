@@ -8,8 +8,9 @@ import (
 )
 
 var (
-	ErrNotFound  = errors.New("No document found")
-	QueryTimeout = time.Second * 5
+	ErrNotFound      = errors.New("No document found")
+	ErrAlreadyExists = errors.New("Resource already exsits")
+	QueryTimeout     = time.Second * 5
 )
 
 type postDataType struct {
@@ -32,6 +33,10 @@ type Storage struct {
 		GetCommentsHandler(context.Context, int) ([]Comment, error)
 		CreateComment(context.Context, *Comment) error
 	}
+	Friends interface {
+		Friend(context.Context, int, int) error
+		Unfriend(context.Context, int, int) error
+	}
 }
 
 func NewDbStorage(db *sql.DB) Storage {
@@ -39,5 +44,6 @@ func NewDbStorage(db *sql.DB) Storage {
 		Posts:    &PostsStore{db},
 		Users:    &UsersStore{db},
 		Comments: &CommentsStore{db},
+		Friends:  &FriendStore{db},
 	}
 }

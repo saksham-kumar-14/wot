@@ -14,8 +14,6 @@ type User struct {
 	Password  string    `json:"-"`
 	About     string    `json:"about"`
 	CreatedAt time.Time `json:"created_at"`
-	Friends   []string  `json:"friends"`
-	FriendsOf []string  `json:"friends_of"`
 }
 
 type UsersStore struct {
