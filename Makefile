@@ -17,6 +17,10 @@ migrate-up:
 migrate-down:
 	@migrate -path=$(MIGRATIONS_PATH) -database=$(DB_ADDR) down $(filter-out $@,$(MAKECMDGOALS))
 
+.PHONY: generate-docs
+generate-docs:
+	@swag init -g ./api/main.go -d cmd,internal && swag fmt
+
 
 DB_NAME=wot
 DB_USER=admin

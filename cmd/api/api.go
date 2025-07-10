@@ -1,19 +1,23 @@
 package main
 
 import (
-	"log"
+	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/saksham-kumar-14/wot/internal/store"
+	httpSwagger "github.com/swaggo/http-swagger"
+	"github.com/swaggo/swag/example/basic/docs"
+	"go.uber.org/zap"
 )
 
 type config struct {
-	addr string
-	db   dbConfig
-	env  string
+	addr   string
+	db     dbConfig
+	env    string
+	apiURL string
 }
 
 type dbConfig struct {
@@ -26,6 +30,7 @@ type dbConfig struct {
 type application struct {
 	config config
 	store  store.Storage
+	logger *zap.SugaredLogger
 }
 
 func (app *application) mount() http.Handler {
@@ -43,6 +48,9 @@ func (app *application) mount() http.Handler {
 
 	r.Route("/v1", func(r chi.Router) {
 		r.Get("/health", app.healthChecker)
+
+		docs := fmt.Sprintf("%s/swagger/doc.json", app.config.addr)
+		r.Get("/swagger/*", httpSwagger.Handler(httpSwagger.URL(docs)))
 
 		r.Route("/posts", func(r chi.Router) {
 			r.Post("/", app.createPost)
@@ -70,6 +78,12 @@ func (app *application) mount() http.Handler {
 }
 
 func (app *application) run(mux http.Handler) error {
+
+	// DOCS
+	docs.SwaggerInfo.Version = version
+	docs.SwaggerInfo.Host = app.config.apiURL
+	docs.SwaggerInfo.BasePath = "/v1"
+
 	server := &http.Server{
 		Addr:         app.config.addr,
 		Handler:      mux,
@@ -78,6 +92,6 @@ func (app *application) run(mux http.Handler) error {
 		IdleTimeout:  time.Minute,
 	}
 
-	log.Printf("Server is running at http://localhost%s\n", app.config.addr)
+	app.logger.Infow("The server is running", "addr", app.config.addr, "env", app.config.env)
 	return server.ListenAndServe()
 }
