@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/saksham-kumar-14/wot/internal/mailer"
 	"github.com/saksham-kumar-14/wot/internal/store"
 	httpSwagger "github.com/swaggo/http-swagger"
 	"github.com/swaggo/swag/example/basic/docs"
@@ -14,10 +15,22 @@ import (
 )
 
 type config struct {
-	addr   string
-	db     dbConfig
-	env    string
-	apiURL string
+	addr        string
+	db          dbConfig
+	env         string
+	apiURL      string
+	mail        mailConfig
+	frontendURL string
+}
+
+type mailConfig struct {
+	sendGrid  sendGridConfig
+	exp       time.Duration
+	fromEmail string
+}
+
+type sendGridConfig struct {
+	apiKey string
 }
 
 type dbConfig struct {
@@ -31,6 +44,7 @@ type application struct {
 	config config
 	store  store.Storage
 	logger *zap.SugaredLogger
+	mailer mailer.Client
 }
 
 func (app *application) mount() http.Handler {
@@ -70,6 +84,12 @@ func (app *application) mount() http.Handler {
 				r.Put("/friend", app.friendHandler)
 				r.Put("/unfriend", app.unfriendHandler)
 			})
+
+			r.Put("/activate/{token}", app.activateUserHandler)
+		})
+
+		r.Route("/authentication", func(r chi.Router) {
+			r.Put("/user", app.registerUserHandler)
 		})
 
 	})

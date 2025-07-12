@@ -8,9 +8,11 @@ import (
 )
 
 var (
-	ErrNotFound      = errors.New("No document found")
-	ErrAlreadyExists = errors.New("Resource already exsits")
-	QueryTimeout     = time.Second * 5
+	ErrNotFound          = errors.New("No document found")
+	ErrAlreadyExists     = errors.New("Resource already exsits")
+	DuplicateEmailErr    = errors.New("Email already exists")
+	DuplicateUsernameErr = errors.New("Username already exsits")
+	QueryTimeout         = time.Second * 5
 )
 
 type postDataType struct {
@@ -26,8 +28,11 @@ type Storage struct {
 		PatchByID(context.Context, *Post) error
 	}
 	Users interface {
-		Create(context.Context, *User) error
+		Create(context.Context, *sql.Tx, *User) error
 		GetByID(context.Context, int) (*User, error)
+		CreateAndInvite(context.Context, *User, string, time.Duration) error
+		Activate(context.Context, string) error
+		Delete(context.Context, int64) error
 	}
 	Comments interface {
 		GetCommentsHandler(context.Context, int) ([]Comment, error)
@@ -46,4 +51,18 @@ func NewDbStorage(db *sql.DB) Storage {
 		Comments: &CommentsStore{db},
 		Friends:  &FriendStore{db},
 	}
+}
+
+func withTx(db *sql.DB, ctx context.Context, function func(*sql.Tx) error) error {
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+
+	if err := function(tx); err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+
+	return tx.Commit()
 }
