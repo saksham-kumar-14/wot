@@ -8,17 +8,13 @@ import (
 )
 
 var (
-	ErrNotFound          = errors.New("No document found")
-	ErrAlreadyExists     = errors.New("Resource already exsits")
-	DuplicateEmailErr    = errors.New("Email already exists")
-	DuplicateUsernameErr = errors.New("Username already exsits")
-	QueryTimeout         = time.Second * 5
-)
+	ErrNotFound          = errors.New("no document found")
+	ErrAlreadyExists     = errors.New("resource already exists")
+	ErrDuplicateEmail    = errors.New("email already exists")
+	ErrDuplicateUsername = errors.New("username already exists")
 
-type postDataType struct {
-	Title   string
-	Content string
-}
+	QueryTimeout = time.Second * 5
+)
 
 type Storage struct {
 	Posts interface {
