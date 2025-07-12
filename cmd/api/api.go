@@ -7,8 +7,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/saksham-kumar-14/wot/internal/auth"
 	"github.com/saksham-kumar-14/wot/internal/mailer"
 	"github.com/saksham-kumar-14/wot/internal/store"
+	"github.com/saksham-kumar-14/wot/internal/store/cache"
 	httpSwagger "github.com/swaggo/http-swagger"
 	"github.com/swaggo/swag/example/basic/docs"
 	"go.uber.org/zap"
@@ -21,6 +23,15 @@ type config struct {
 	apiURL      string
 	mail        mailConfig
 	frontendURL string
+	auth        authConfig
+	redisCfg    redisConfig
+}
+
+type redisConfig struct {
+	addr    string
+	pw      string
+	db      int
+	enabled bool
 }
 
 type mailConfig struct {
@@ -41,10 +52,22 @@ type dbConfig struct {
 }
 
 type application struct {
-	config config
-	store  store.Storage
-	logger *zap.SugaredLogger
-	mailer mailer.Client
+	config        config
+	store         store.Storage
+	cacheStorage  cache.Storage
+	logger        *zap.SugaredLogger
+	mailer        mailer.Client
+	authenticator auth.Authenticator
+}
+
+type authConfig struct {
+	token tokenConfig
+}
+
+type tokenConfig struct {
+	secret string
+	exp    time.Duration
+	issuer string
 }
 
 func (app *application) mount() http.Handler {
@@ -67,9 +90,11 @@ func (app *application) mount() http.Handler {
 		r.Get("/swagger/*", httpSwagger.Handler(httpSwagger.URL(docs)))
 
 		r.Route("/posts", func(r chi.Router) {
+			r.Use(app.AuthTokenMiddleware)
 			r.Post("/", app.createPost)
 		})
 		r.Route("/posts/{postID}", func(r chi.Router) {
+			r.Use(app.AuthTokenMiddleware)
 			r.Get("/", app.getPost)
 			r.Patch("/", app.patchPost)
 			r.Delete("/", app.deletePost)
@@ -77,19 +102,21 @@ func (app *application) mount() http.Handler {
 		})
 
 		r.Route("/users", func(r chi.Router) {
-			r.Route("/{userID}", func(r chi.Router) {
-				r.Use(app.userContextMiddleware)
+			r.Put("/activate/{token}", app.activateUserHandler)
 
-				r.Get("/", app.getUser)
+			r.Route("/{userID}", func(r chi.Router) {
+				r.Use(app.AuthTokenMiddleware)
+
+				r.Get("/", app.getUserHandler)
 				r.Put("/friend", app.friendHandler)
 				r.Put("/unfriend", app.unfriendHandler)
 			})
 
-			r.Put("/activate/{token}", app.activateUserHandler)
 		})
 
 		r.Route("/authentication", func(r chi.Router) {
 			r.Put("/user", app.registerUserHandler)
+			r.Post("/token", app.createTokenHandler)
 		})
 
 	})

@@ -3,9 +3,12 @@ package main
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
+	"github.com/golang-jwt/jwt"
 	"github.com/google/uuid"
 	"github.com/saksham-kumar-14/wot/internal/mailer"
 	"github.com/saksham-kumar-14/wot/internal/store"
@@ -95,6 +98,56 @@ func (app *application) registerUserHandler(w http.ResponseWriter, r *http.Reque
 	}
 
 	if err := writeJSON(w, http.StatusCreated, userWithToken); err != nil {
+		app.internalServerError(w, r, err)
+	}
+}
+
+type CreateUserTokenPayload struct {
+	Email    string `json:"email" validate:"required,email,max=255"`
+	Password string `json:"password" validate:"required,min=6,max=72"`
+}
+
+func (app *application) createTokenHandler(w http.ResponseWriter, r *http.Request) {
+	// parse payload
+	var payload CreateUserTokenPayload
+	if err := readJSON(w, r, &payload); err != nil {
+		app.badRequestError(w, r, err)
+		return
+	}
+
+	// fetch user
+	user, err := app.store.Users.GetByEmail(r.Context(), payload.Email)
+	if err != nil {
+		switch err {
+		case store.ErrNotFound:
+			app.notFoundError(w, r, err)
+		default:
+			app.internalServerError(w, r, err)
+		}
+		return
+	}
+
+	if err := user.Password.Compare(payload.Password); err != nil {
+		app.badRequestError(w, r, errors.New("unauthenticated user"))
+		return
+	}
+
+	// generate token
+	claims := jwt.MapClaims{
+		"sub": user.ID,
+		"exp": time.Now().Add(app.config.auth.token.exp).Unix(),
+		"iat": time.Now().Unix(),
+		"nbf": time.Now().Unix(),
+		"iss": app.config.auth.token.issuer,
+		"aud": app.config.auth.token.issuer,
+	}
+	token, err := app.authenticator.GenerateToken(claims)
+	if err != nil {
+		app.internalServerError(w, r, err)
+		return
+	}
+
+	if err := writeJSON(w, http.StatusCreated, token); err != nil {
 		app.internalServerError(w, r, err)
 	}
 }

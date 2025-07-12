@@ -3,10 +3,13 @@ package main
 import (
 	"time"
 
+	"github.com/go-redis/redis/v8"
+	"github.com/saksham-kumar-14/wot/internal/auth"
 	"github.com/saksham-kumar-14/wot/internal/db"
 	"github.com/saksham-kumar-14/wot/internal/env"
 	"github.com/saksham-kumar-14/wot/internal/mailer"
 	"github.com/saksham-kumar-14/wot/internal/store"
+	"github.com/saksham-kumar-14/wot/internal/store/cache"
 	"go.uber.org/zap"
 )
 
@@ -50,6 +53,19 @@ func main() {
 				apiKey: env.GetString("SENDGRID_API_KEY", ""),
 			},
 		},
+		auth: authConfig{
+			token: tokenConfig{
+				secret: env.GetString("AUTH_SECRET", "super_strong_secret"),
+				exp:    time.Hour * 48,
+				issuer: "wot",
+			},
+		},
+		redisCfg: redisConfig{
+			addr:    env.GetString("REDIS_ADDR", "localhost:6379"),
+			pw:      env.GetString("REDIS_PW", ""),
+			db:      env.GetInt("REDIS_DB", 0),
+			enabled: env.GetBool("REDIS_ENABLED", false),
+		},
 	}
 
 	// logger
@@ -64,15 +80,27 @@ func main() {
 	defer db.Close()
 	logger.Info("DB connected")
 
+	// Cache
+	var rdb *redis.Client
+	if cfg.redisCfg.enabled {
+		rdb = cache.NewRedisClient(cfg.redisCfg.addr, cfg.redisCfg.pw, cfg.redisCfg.db)
+		logger.Info("redis cache connection established")
+	}
+
 	store := store.NewDbStorage(db)
+	cacheStore := cache.NewRedisStorage(rdb)
 
 	mailer := mailer.NewSendGrid(cfg.mail.sendGrid.apiKey, cfg.mail.fromEmail)
 
+	jwtAuth := auth.NewJWTAuthenticator(cfg.auth.token.secret, cfg.auth.token.issuer, cfg.auth.token.issuer)
+
 	app := &application{
-		config: cfg,
-		store:  store,
-		logger: logger,
-		mailer: mailer,
+		config:        cfg,
+		store:         store,
+		cacheStorage:  cacheStore,
+		logger:        logger,
+		mailer:        mailer,
+		authenticator: jwtAuth,
 	}
 
 	mux := app.mount()

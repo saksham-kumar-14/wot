@@ -47,8 +47,26 @@ func getUserFromContext(r *http.Request) *store.User {
 	return user
 }
 
-func (app *application) getUser(w http.ResponseWriter, r *http.Request) {
-	user := getUserFromContext(r)
+func (app *application) getUserHandler(w http.ResponseWriter, r *http.Request) {
+	idParam := chi.URLParam(r, "userID")
+	userID, err := strconv.ParseInt(idParam, 10, 64)
+	if err != nil {
+		app.internalServerError(w, r, err)
+		return
+	}
+
+	ctx := r.Context()
+
+	user, err := app.store.Users.GetByID(ctx, int(userID))
+	if err != nil {
+		switch {
+		case errors.Is(err, store.ErrNotFound):
+			app.notFoundError(w, r, err)
+		default:
+			app.internalServerError(w, r, err)
+		}
+		return
+	}
 
 	if err := writeJSON(w, http.StatusOK, user); err != nil {
 		app.internalServerError(w, r, err)
@@ -63,16 +81,14 @@ type FriendUser struct {
 
 func (app *application) friendHandler(w http.ResponseWriter, r *http.Request) {
 	friendUser := getUserFromContext(r)
-
-	// TODO: revert when auth impl
-	var payload FriendUser
-	if err := readJSON(w, r, &payload); err != nil {
+	friendOfUserID, err := strconv.ParseInt(chi.URLParam(r, "userID"), 10, 64)
+	if err != nil {
 		app.badRequestError(w, r, err)
 		return
 	}
 
 	ctx := r.Context()
-	if err := app.store.Friends.Friend(ctx, int(friendUser.ID), payload.UserId); err != nil {
+	if err := app.store.Friends.Friend(ctx, int(friendUser.ID), int(friendOfUserID)); err != nil {
 		switch err {
 		case store.ErrAlreadyExists:
 			app.conflict(w, r, err)
@@ -82,7 +98,7 @@ func (app *application) friendHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if err := writeJSON(w, http.StatusOK, payload); err != nil {
+	if err := writeJSON(w, http.StatusOK, nil); err != nil {
 		app.internalServerError(w, r, err)
 		return
 	}
@@ -90,21 +106,19 @@ func (app *application) friendHandler(w http.ResponseWriter, r *http.Request) {
 
 func (app *application) unfriendHandler(w http.ResponseWriter, r *http.Request) {
 	unfriendUser := getUserFromContext(r)
-
-	// TODO: revert when auth impl
-	var payload FriendUser
-	if err := readJSON(w, r, &payload); err != nil {
+	unfriendOfUserID, err := strconv.ParseInt(chi.URLParam(r, "userID"), 10, 64)
+	if err != nil {
 		app.badRequestError(w, r, err)
 		return
 	}
 
 	ctx := r.Context()
-	if err := app.store.Friends.Unfriend(ctx, int(unfriendUser.ID), payload.UserId); err != nil {
+	if err := app.store.Friends.Unfriend(ctx, int(unfriendUser.ID), int(unfriendOfUserID)); err != nil {
 		app.internalServerError(w, r, err)
 		return
 	}
 
-	if err := writeJSON(w, http.StatusOK, payload); err != nil {
+	if err := writeJSON(w, http.StatusOK, nil); err != nil {
 		app.internalServerError(w, r, err)
 		return
 	}

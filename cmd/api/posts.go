@@ -29,13 +29,13 @@ func (app *application) createPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userId := 1
+	user := getUserFromContext(r)
 
 	post := &store.Post{
 		Title:   payload.Title,
 		Content: payload.Content,
 		Tags:    payload.Tags,
-		UserId:  int64(userId),
+		UserId:  user.ID,
 	}
 	ctx := r.Context()
 
