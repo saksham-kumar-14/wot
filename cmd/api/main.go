@@ -8,6 +8,7 @@ import (
 	"github.com/saksham-kumar-14/wot/internal/db"
 	"github.com/saksham-kumar-14/wot/internal/env"
 	"github.com/saksham-kumar-14/wot/internal/mailer"
+	ratelimiter "github.com/saksham-kumar-14/wot/internal/rateLimiter"
 	"github.com/saksham-kumar-14/wot/internal/store"
 	"github.com/saksham-kumar-14/wot/internal/store/cache"
 	"go.uber.org/zap"
@@ -64,7 +65,12 @@ func main() {
 			addr:    env.GetString("REDIS_ADDR", "localhost:6379"),
 			pw:      env.GetString("REDIS_PW", ""),
 			db:      env.GetInt("REDIS_DB", 0),
-			enabled: env.GetBool("REDIS_ENABLED", false),
+			enabled: env.GetBool("REDIS_ENABLED", true),
+		},
+		ratelimiter: ratelimiter.Config{
+			ReqPerTimeFrame: env.GetInt("RATELIMITER_REQ_COUNT", 20),
+			TimeFrame:       time.Second * 5,
+			Enabled:         env.GetBool("RATELIMITER_ENABLED", true),
 		},
 	}
 
@@ -87,6 +93,12 @@ func main() {
 		logger.Info("redis cache connection established")
 	}
 
+	// Rate limiter
+	ratelimiter := ratelimiter.NewFixedWindowLimiter(
+		cfg.ratelimiter.ReqPerTimeFrame,
+		cfg.ratelimiter.TimeFrame,
+	)
+
 	store := store.NewDbStorage(db)
 	cacheStore := cache.NewRedisStorage(rdb)
 
@@ -101,6 +113,7 @@ func main() {
 		logger:        logger,
 		mailer:        mailer,
 		authenticator: jwtAuth,
+		ratelimiter:   ratelimiter,
 	}
 
 	mux := app.mount()

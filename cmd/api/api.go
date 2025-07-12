@@ -7,8 +7,11 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
 	"github.com/saksham-kumar-14/wot/internal/auth"
+	"github.com/saksham-kumar-14/wot/internal/env"
 	"github.com/saksham-kumar-14/wot/internal/mailer"
+	ratelimiter "github.com/saksham-kumar-14/wot/internal/rateLimiter"
 	"github.com/saksham-kumar-14/wot/internal/store"
 	"github.com/saksham-kumar-14/wot/internal/store/cache"
 	httpSwagger "github.com/swaggo/http-swagger"
@@ -25,6 +28,7 @@ type config struct {
 	frontendURL string
 	auth        authConfig
 	redisCfg    redisConfig
+	ratelimiter ratelimiter.Config
 }
 
 type redisConfig struct {
@@ -58,6 +62,7 @@ type application struct {
 	logger        *zap.SugaredLogger
 	mailer        mailer.Client
 	authenticator auth.Authenticator
+	ratelimiter   ratelimiter.Limiter
 }
 
 type authConfig struct {
@@ -77,6 +82,17 @@ func (app *application) mount() http.Handler {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+
+	r.Use(app.RateLimiterMiddleware)
+
+	r.Use(cors.Handler(cors.Options{
+		AllowedOrigins:   []string{env.GetString("CORS_ALLOWED_ORIGIN", "http://localhost:5174")},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
+		ExposedHeaders:   []string{"Link"},
+		AllowCredentials: false,
+		MaxAge:           300, // Maximum value not ignored by any of major browsers
+	}))
 
 	// Set a timeout value on the request context (ctx), that will signal
 	// through ctx.Done() that the request has timed out and further

@@ -23,3 +23,8 @@ func (app *application) conflict(w http.ResponseWriter, r *http.Request, err err
 	app.logger.Warnf("conflict error", "method", r.Method, "path", r.URL.Path, "error", err)
 	writeJSONError(w, http.StatusConflict, "conflict occured")
 }
+
+func (app *application) rateLimitExceededResponse(w http.ResponseWriter, r *http.Request, retry string) {
+	app.logger.Warnf("conflict error", "method", r.Method, "path", r.URL.Path, "error", "rate limit exceeded. Try after : "+retry)
+	writeJSONError(w, http.StatusConflict, "conflict occured")
+}
